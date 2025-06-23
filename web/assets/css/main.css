@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+
+:root {
+	/* Основные цвета интерфейса */
+	--ui-primary: #00bcff;
+	--ui-secondary: #ff9800;
+
+	/* Фоновые цвета */
+	--ui-background: #f0f9ff;
+	--ui-background-alt: #ffffff;
+
+	/* Цвета текста */
+	--ui-text-primary: #1a1a1a;
+	--ui-text-secondary: #555555;
+	--ui-text-on-primary: #ffffff;
+
+	/* Уведомления и состояния */
+	--ui-success: #4caf50;
+	--ui-warning: #ff9800;
+	--ui-error: #f44336;
+
+	/* Границы и разделители */
+	--ui-border: #d0eaff;
+}
+
+.dark {
+	--ui-primary: #00bcff;
+	--ui-secondary: #ffa726;
+
+	--ui-background: #121212;
+	--ui-background-alt: #1e1e1e;
+
+	--ui-text-primary: #ffffff;
+	--ui-text-secondary: #bbbbbb;
+	--ui-text-on-primary: #121212;
+
+	--ui-success: #66bb6a;
+	--ui-warning: #ffb74d;
+	--ui-error: #ef5350;
+
+	--ui-border: #333333;
+}
+
+body {
+	background: var(--ui-background);
+	color: var(--ui-text-primary);
+	--font-sans: 'Outfit', sans-serif;
+}
+
