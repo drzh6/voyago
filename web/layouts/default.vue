@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import Header from '@/components/layout/Header.vue'
 import MobileMenu from '@/components/layout/MobileMenu.vue'
 import Footer from '@/components/layout/Footer.vue'

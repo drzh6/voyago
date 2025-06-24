@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DropdownMenuLogin from '@/components/base/DropdownMenuLogin.vue'
 import { useMenuStore } from '@/stores/useMenuStore'
 const menu = useMenuStore()
 </script>
@@ -49,5 +50,6 @@ const menu = useMenuStore()
         :class="menu.isOpen ? 'bg-primary' : ''"
       ></div>
     </button>
+    <DropdownMenuLogin />
   </header>
 </template>
