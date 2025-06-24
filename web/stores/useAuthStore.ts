@@ -51,9 +51,6 @@ export const useAuthStore = defineStore('auth', () => {
           sessionStorage.removeItem('user')
         }
       }
-
-      // редирект на главную или куда нужно
-      await router.push('/')
     } catch (err: any) {
       error.value = err.response?.data?.detail || 'Ошибка авторизации'
       console.error(err)
@@ -89,8 +86,6 @@ export const useAuthStore = defineStore('auth', () => {
           sessionStorage.removeItem('user')
         }
       }
-
-      await router.push('/')
     } catch (err: any) {
       error.value = err.response?.data?.detail || 'Ошибка регистрации'
       console.error(err)
@@ -109,7 +104,7 @@ export const useAuthStore = defineStore('auth', () => {
       sessionStorage.removeItem('user')
     }
 
-    router.push('/login')
+    router.push('/')
   }
 
   return {
