@@ -11,8 +11,9 @@ func main() {
 	cfg := config.Load()
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
+	srv := handler.NewService()
+	handler.RegisterRoutes(mux, srv)
 
 	log.Println("Server running on port", cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, mux))
+	log.Fatal(http.ListenAndServe("localhost:"+cfg.Port, mux))
 }

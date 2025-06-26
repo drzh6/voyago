@@ -5,8 +5,10 @@ import (
 	"net/http"
 )
 
-func RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+func RegisterRoutes(mux *http.ServeMux, s *Service) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "OK")
 	})
+
+	mux.HandleFunc("POST /auth", s.AuthHandler)
 }
