@@ -11,4 +11,5 @@ func RegisterRoutes(mux *http.ServeMux, s *Service) {
 	})
 
 	mux.HandleFunc("POST /api/registration", s.RegisterHandler)
+	mux.HandleFunc("POST /api/login", s.LoginHandler)
 }

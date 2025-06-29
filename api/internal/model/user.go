@@ -5,6 +5,7 @@ import "time"
 type User struct {
 	Login        string
 	Password     string
+	Salt         []byte
 	Name         string
 	Surname      string
 	Avatar       string
