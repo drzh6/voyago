@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -19,14 +18,14 @@ import (
 type RegisterHandlerRequest struct {
 	Login    string `json:"login"`
 	Email    string `json:"email"`
-	Password []byte `json:"password"`
+	Password string `json:"password"`
 	Name     string `json:"name"`
 	Surname  string `json:"surname"`
 }
 
 type LoginHandlerRequest struct {
 	Login    string `json:"login"`
-	Password []byte `json:"password"`
+	Password string `json:"password"`
 }
 
 func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,16 +37,23 @@ func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := uuid.New()
-	hashPassword, err := HashPassword(req.Password)
+	hashPassword, err := HashPassword([]byte(req.Password))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	_, err = srv.pool.Exec(r.Context(), `INSERT INTO users (id, login, email, password, name, surname) VALUES ($1, $2, $3, $4, $5, $6)`, id, req.Login, req.Email, hashPassword, req.Name, req.Surname)
+	accessTokenCookie, refreshTokenCookie, err := CreateTokens(id, srv.cfg)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Println("Token Error: " + err.Error())
+		return
+	}
+
+	_, err = srv.pool.Exec(r.Context(), `INSERT INTO "users" (id, login, email, password, name, surname) VALUES ($1, $2, $3, $4, $5, $6)`, id, req.Login, req.Email, hashPassword, req.Name, req.Surname)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
-			if pgErr.Code == "23505" {
+			if pgErr.Code == "23505" /*EBAL ROT*/ {
 				http.Error(w, "User already exists", http.StatusConflict)
 				return
 			}
@@ -57,12 +63,9 @@ func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = CreateTokens(w, id, srv.cfg)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-
-	fmt.Println(req.Login)
+	http.SetCookie(w, accessTokenCookie)
+	http.SetCookie(w, refreshTokenCookie)
+	log.Println("Register success!")
 	w.Write([]byte("Register success!"))
 }
 
@@ -70,6 +73,7 @@ func (srv *Service) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginHandlerRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
+		log.Println("Login Request error: " + err.Error())
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -80,6 +84,7 @@ func (srv *Service) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	err = srv.pool.QueryRow(r.Context(), `SELECT id, name, password FROM users WHERE login = $1`, req.Login).Scan(&id, &name, &hashedPassword)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			log.Println("SQL Query error: " + err.Error())
 			http.Error(w, "Invalid user", http.StatusUnauthorized)
 			return
 		}
@@ -89,15 +94,21 @@ func (srv *Service) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(req.Password))
 	if err != nil {
+		log.Println("Hash password error" + err.Error())
+
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	err = CreateTokens(w, id, srv.cfg)
+	accessTokenCookie, refreshTokenCookie, err := CreateTokens(id, srv.cfg)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		log.Println("Token Error:" + err.Error())
 		return
 	}
+
+	http.SetCookie(w, accessTokenCookie)
+	http.SetCookie(w, refreshTokenCookie)
 	w.Write([]byte(name))
 }
 
@@ -109,28 +120,30 @@ func HashPassword(password []byte) ([]byte, error) {
 	return bytes, err
 }
 
-func CreateTokens(w http.ResponseWriter, id uuid.UUID, config config.Config) error {
-	token, err := CreateToken(id, config.JWTKey)
+func CreateTokens(id uuid.UUID, config config.Config) (*http.Cookie, *http.Cookie, error) {
+	token, err := CreateToken(id, []byte(config.JWTRefreshKey))
 	if err != nil {
-		return err
+		log.Println("Create Token Error: " + err.Error())
+		return nil, nil, err
 	}
 
-	refreshToken, err := CreateToken(id, config.JWTRefreshKey)
+	refreshToken, err := CreateToken(id, []byte(config.JWTRefreshKey))
 	if err != nil {
-		return err
+		log.Println("Create Token Error: " + err.Error())
+		return nil, nil, err
 	}
 
 	JWTAccessTime, err := strconv.Atoi(config.JWTAccessTime)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	JWTRefreshTime, err := strconv.Atoi(config.JWTRefreshTime)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	http.SetCookie(w, &http.Cookie{
+	accessCookie := &http.Cookie{
 		Name:     "access_token",
 		Value:    token,
 		Path:     "/",
@@ -138,9 +151,9 @@ func CreateTokens(w http.ResponseWriter, id uuid.UUID, config config.Config) err
 		Secure:   false, // True в проде (Https)
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(time.Duration(JWTAccessTime) * time.Minute),
-	})
+	}
 
-	http.SetCookie(w, &http.Cookie{
+	refreshCookie := &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
 		Path:     "/api/refresh",
@@ -148,11 +161,11 @@ func CreateTokens(w http.ResponseWriter, id uuid.UUID, config config.Config) err
 		Secure:   false, // True в проде (Https)
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(time.Duration(JWTRefreshTime) * time.Hour * 24),
-	})
-	return nil
+	}
+	return accessCookie, refreshCookie, nil
 }
 
-func CreateToken(id uuid.UUID, key string) (string, error) {
+func CreateToken(id uuid.UUID, key []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id": id,
 	})

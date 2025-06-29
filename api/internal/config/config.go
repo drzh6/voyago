@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/joho/godotenv"
+	"log"
 	"os"
 )
 
@@ -28,16 +29,17 @@ func Load() Config {
 		DBUser:         getEnv("DB_USER", ""),
 		DBPass:         getEnv("DB_PASSWORD", ""),
 		DBName:         getEnv("DB_NAME", ""),
-		JWTKey:         getEnv("JWT_KEY", ""),
+		JWTKey:         getEnv("JWT_SECRET", ""),
 		JWTRefreshKey:  getEnv("JWT_SECRET_REFRESH", ""),
-		JWTAccessTime:  getEnv("JWT_ACCESS_TIME", ""),
-		JWTRefreshTime: getEnv("JWT_REFRESH_TIME", ""),
+		JWTAccessTime:  getEnv("JWT_ACCESS_EXPIRES", ""),
+		JWTRefreshTime: getEnv("JWT_REFRESH_EXPIRES", ""),
 	}
 }
 
 func getEnv(key, fallback string) string {
+	log.Println(key)
 	if val, ok := os.LookupEnv(key); ok {
-
+		log.Println(val)
 		return val
 	}
 	return fallback
