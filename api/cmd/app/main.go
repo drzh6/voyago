@@ -5,6 +5,7 @@ import (
 	"api/voyago/internal/db"
 	"api/voyago/internal/handler"
 	"context"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 )
@@ -18,9 +19,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv := handler.NewService(pool)
+	srv := handler.NewService(pool, cfg)
 	handler.RegisterRoutes(mux, srv)
 
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+	}).Handler(mux)
+
 	log.Println("Server running on port", cfg.Port)
-	log.Fatal(http.ListenAndServe("localhost:"+cfg.Port, mux))
+	log.Fatal(http.ListenAndServe("localhost:"+cfg.Port, corsHandler))
 }
