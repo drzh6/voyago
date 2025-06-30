@@ -6,8 +6,10 @@ import (
 )
 
 type Service struct {
-	pool *pgxpool.Pool
-	cfg  config.Config
+	pool             *pgxpool.Pool
+	cfg              config.Config
+	AccessTokenName  string "access_token"
+	RefreshTokenName string "refresh_token"
 }
 
 func NewService(pool *pgxpool.Pool, cfg config.Config) *Service {
