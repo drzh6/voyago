@@ -1,18 +1,15 @@
 package handler
 
 import (
-	"api/voyago/internal/config"
+	"api/voyago/internal/service"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
-	"strconv"
-	"time"
 )
 
 type RegisterHandlerRequest struct {
@@ -35,17 +32,16 @@ func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
-
 	id := uuid.New()
 	hashPassword, err := HashPassword([]byte(req.Password))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	accessTokenCookie, refreshTokenCookie, err := CreateTokens(id, srv.cfg)
-	if err != nil {
+	jwtSrv := service.GetNewCookies(id, srv.cfg)
+	if jwtSrv.Error != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Println("Token Error: " + err.Error())
+		log.Println("Token Error:" + err.Error())
 		return
 	}
 
@@ -53,7 +49,7 @@ func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
-			if pgErr.Code == "23505" /*EBAL ROT*/ {
+			if pgErr.Code == "23505" {
 				http.Error(w, "User already exists", http.StatusConflict)
 				return
 			}
@@ -63,8 +59,8 @@ func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, accessTokenCookie)
-	http.SetCookie(w, refreshTokenCookie)
+	http.SetCookie(w, jwtSrv.AccessCookie)
+	http.SetCookie(w, jwtSrv.RefreshCookie)
 	log.Println("Register success!")
 	w.Write([]byte("Register success!"))
 }
@@ -100,15 +96,15 @@ func (srv *Service) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessTokenCookie, refreshTokenCookie, err := CreateTokens(id, srv.cfg)
-	if err != nil {
+	jwtSrv := service.GetNewCookies(id, srv.cfg)
+	if jwtSrv.Error != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Println("Token Error:" + err.Error())
 		return
 	}
 
-	http.SetCookie(w, accessTokenCookie)
-	http.SetCookie(w, refreshTokenCookie)
+	http.SetCookie(w, jwtSrv.AccessCookie)
+	http.SetCookie(w, jwtSrv.RefreshCookie)
 	w.Write([]byte(name))
 }
 
@@ -118,56 +114,4 @@ func HashPassword(password []byte) ([]byte, error) {
 	}
 	bytes, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	return bytes, err
-}
-
-func CreateTokens(id uuid.UUID, config config.Config) (*http.Cookie, *http.Cookie, error) {
-	token, err := CreateToken(id, []byte(config.JWTRefreshKey))
-	if err != nil {
-		log.Println("Create Token Error: " + err.Error())
-		return nil, nil, err
-	}
-
-	refreshToken, err := CreateToken(id, []byte(config.JWTRefreshKey))
-	if err != nil {
-		log.Println("Create Token Error: " + err.Error())
-		return nil, nil, err
-	}
-
-	JWTAccessTime, err := strconv.Atoi(config.JWTAccessTime)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	JWTRefreshTime, err := strconv.Atoi(config.JWTRefreshTime)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	accessCookie := &http.Cookie{
-		Name:     "access_token",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false, // True в проде (Https)
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(time.Duration(JWTAccessTime) * time.Minute),
-	}
-
-	refreshCookie := &http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		Path:     "/api/refresh",
-		HttpOnly: true,
-		Secure:   false, // True в проде (Https)
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(time.Duration(JWTRefreshTime) * time.Hour * 24),
-	}
-	return accessCookie, refreshCookie, nil
-}
-
-func CreateToken(id uuid.UUID, key []byte) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": id,
-	})
-	return token.SignedString(key)
 }
