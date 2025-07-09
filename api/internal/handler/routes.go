@@ -10,16 +10,19 @@ func RegisterRoutes(mux *http.ServeMux, srv *Service) {
 		fmt.Fprintln(w, "OK")
 	})
 	//Auth
-	mux.HandleFunc("POST /api/registration", srv.RegisterHandler)
-	mux.HandleFunc("POST /api/login", srv.LoginHandler)
+	mux.HandleFunc("POST /api/user/registration", srv.RegisterHandler)
+	mux.HandleFunc("POST /api/user/login", srv.LoginHandler)
 	//Trips
 	mux.HandleFunc(`POST /api/trip/add`, srv.CreateTripHandler)
 
-	mux.HandleFunc(`GET /api/trip`, srv.GetUserListTripsHandler)
+	mux.HandleFunc(`GET /api/trip/{trip_id}`, srv.GetUserListTripsHandler)
 	mux.HandleFunc(`GET /api/trip/get_all`, srv.GetUserTripHandler)
 
-	mux.HandleFunc(`UPDATE /api/trip/update_trip`, srv.UpdateUserTripHandler)
-	mux.HandleFunc(`UPDATE /api/trip/complete`, srv.CompleteUserTripHandler)
+	mux.HandleFunc(`PUT /api/trip/{trip_id}/update_trip`, srv.UpdateUserTripHandler)
 
-	mux.HandleFunc(`DELETE /api/trip/delete`, srv.DeleteUserTripHandler)
+	mux.HandleFunc(`PATCH /api/trip/{trip_id}/complete`, srv.CompleteUserTripHandler)
+
+	mux.HandleFunc(`DELETE /api/trip/{trip_id}/delete/`, srv.DeleteUserTripHandler)
+	//User
+	mux.HandleFunc(`POST /api/user/delete`, srv.DeleteUserHandler)
 }

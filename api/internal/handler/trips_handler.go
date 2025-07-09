@@ -122,10 +122,10 @@ func (srv Service) UpdateUserTripHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (srv Service) GetUserTripHandler(w http.ResponseWriter, r *http.Request) {
-	var req string
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	tripId := r.URL.Query().Get("trip_id")
+	if tripId == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		log.Println("\n Error in GetUserTripHandler in URL.Query")
 		return
 	}
 
@@ -138,7 +138,7 @@ func (srv Service) GetUserTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	sql := `SELECT * FROM trips WHERE id = $1 and owner_id = $2`
 	var result TripRequestBody
-	err = srv.pool.QueryRow(r.Context(), sql, body.Id).Scan(result)
+	err = srv.pool.QueryRow(r.Context(), sql, tripId, body.Id).Scan(result)
 	if err != nil {
 		log.Printf("\n Error in GetUserTripHandler in QueryRow: %v ", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -154,10 +154,10 @@ func (srv Service) GetUserTripHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (srv Service) DeleteUserTripHandler(w http.ResponseWriter, r *http.Request) {
-	var req string
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	tripId := r.URL.Query().Get("trip_id")
+	if tripId == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		log.Println("\n Error in DeleteUserTripHandler in URL.Query")
 		return
 	}
 
@@ -169,7 +169,7 @@ func (srv Service) DeleteUserTripHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	sql := `DELETE FROM trips WHERE id = $1 and owner_id = $2`
-	_, err = srv.pool.Exec(r.Context(), sql, req, body.Id)
+	_, err = srv.pool.Exec(r.Context(), sql, tripId, body.Id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Printf("\n Error in DeleteUserTripHandler in SQL: %v ", err)
@@ -180,10 +180,10 @@ func (srv Service) DeleteUserTripHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (srv Service) CompleteUserTripHandler(w http.ResponseWriter, r *http.Request) {
-	var req string
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	tripId := r.URL.Query().Get("trip_id")
+	if tripId == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		log.Println("\n Error in CompleteUserTripHandler in URL.Query")
 		return
 	}
 
@@ -195,7 +195,9 @@ func (srv Service) CompleteUserTripHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	sql := `UPDATE trips SET status = $1 WHERE id = $2 AND owner_id = $3`
-	_, err = srv.pool.Exec(r.Context(), sql, "completed", req, body.Id)
+	_, err = srv.pool.Exec(r.Context(), sql, "completed", tripId, body.Id)
+
+	w.Write([]byte("Trip completed succeeded"))
 }
 
 func generateInviteCode(length int, letterRunes []rune) string {
