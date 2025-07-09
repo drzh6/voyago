@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"api/voyago/internal/service"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -38,7 +37,7 @@ func (srv *Service) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	jwtSrv := service.GetNewCookies(id, srv.cfg)
+	jwtSrv := GetNewCookies(id, srv.cfg)
 	if jwtSrv.Error != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Println("Token Error:" + err.Error())
@@ -96,7 +95,7 @@ func (srv *Service) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwtSrv := service.GetNewCookies(id, srv.cfg)
+	jwtSrv := GetNewCookies(id, srv.cfg)
 	if jwtSrv.Error != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Println("Token Error:" + err.Error())
