@@ -10,8 +10,8 @@ func RegisterRoutes(mux *http.ServeMux, srv *Service) {
 		fmt.Fprintln(w, "OK")
 	})
 	//Auth
-	mux.HandleFunc("POST /api/registration", srv.RegisterHandler)
-	mux.HandleFunc("POST /api/login", srv.LoginHandler)
+	mux.HandleFunc("POST /api/user/registration", srv.RegisterHandler)
+	mux.HandleFunc("POST /api/user/login", srv.LoginHandler)
 	//Trips
 	mux.HandleFunc(`POST /api/trip/add`, srv.CreateTripHandler)
 
@@ -22,4 +22,6 @@ func RegisterRoutes(mux *http.ServeMux, srv *Service) {
 	mux.HandleFunc(`UPDATE /api/trip/complete`, srv.CompleteUserTripHandler)
 
 	mux.HandleFunc(`DELETE /api/trip/delete`, srv.DeleteUserTripHandler)
+	//User
+	mux.HandleFunc(`POST /api/user/delete`, srv.DeleteUserTripHandler)
 }
