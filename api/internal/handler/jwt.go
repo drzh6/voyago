@@ -1,4 +1,4 @@
-package service
+package handler
 
 import (
 	"api/voyago/internal/config"
@@ -19,7 +19,7 @@ type JWTService struct {
 }
 
 type JWTBody struct {
-	Id uuid.UUID
+	Id string
 }
 
 func GetInfoFromCookie(r *http.Request, cookieName string, JWTKey string) (*JWTBody, error) {
@@ -33,7 +33,7 @@ func GetInfoFromCookie(r *http.Request, cookieName string, JWTKey string) (*JWTB
 	}
 
 	return &JWTBody{
-		Id: claims["id"].(uuid.UUID),
+		Id: claims["id"].(string),
 	}, nil
 }
 
@@ -51,21 +51,22 @@ func GetTokenFromCookie(r *http.Request, cookieName string) (string, error) {
 
 func DecodeJWT(tokenString string, key string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return key, nil
+		return []byte(key), nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("ошибка при разборе токена: %w", err)
+		return nil, fmt.Errorf("ошибка при разборе токена: %w, token %d,token after Parse %s", err, tokenString, token)
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
-	} else {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
 		return nil, fmt.Errorf("недействительный токен")
 	}
+
+	return claims, nil
 }
 
 func GetNewCookies(id uuid.UUID, config config.Config) (jwtService *JWTService) {
@@ -78,7 +79,7 @@ func GetNewCookies(id uuid.UUID, config config.Config) (jwtService *JWTService) 
 }
 
 func createTokens(id uuid.UUID, config config.Config) (*http.Cookie, *http.Cookie, error) {
-	token, err := createToken(id, []byte(config.JWTRefreshKey))
+	token, err := createToken(id, []byte(config.JWTKey))
 	if err != nil {
 		log.Println("Create Token Error: " + err.Error())
 		return nil, nil, err
@@ -124,9 +125,7 @@ func createTokens(id uuid.UUID, config config.Config) (*http.Cookie, *http.Cooki
 
 func createToken(id uuid.UUID, key []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"JWTBody": JWTBody{
-			Id: id,
-		},
+		"id": id,
 	})
 	return token.SignedString(key)
 }

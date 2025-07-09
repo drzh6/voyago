@@ -8,18 +8,15 @@ import (
 type Service struct {
 	pool             *pgxpool.Pool
 	cfg              config.Config
-	AccessTokenName  string "access_token"
+	AccessTokenName  string
 	RefreshTokenName string "refresh_token"
 }
 
 func NewService(pool *pgxpool.Pool, cfg config.Config) *Service {
 	return &Service{
-		pool: pool,
-		cfg:  cfg,
+		pool:             pool,
+		cfg:              cfg,
+		AccessTokenName:  "access_token",
+		RefreshTokenName: "refresh_token",
 	}
 }
-
-/*func GetResultFromRows(rows *pgx.Rows) (string, error) {
-	var result string
-	err := rows.Scan(&result)
-}*/
