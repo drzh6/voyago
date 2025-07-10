@@ -15,14 +15,14 @@ func RegisterRoutes(mux *http.ServeMux, srv *Service) {
 	//Trips
 	mux.HandleFunc(`POST /api/trip/add`, srv.CreateTripHandler)
 
-	mux.HandleFunc(`GET /api/trip/{trip_id}`, srv.GetUserListTripsHandler)
-	mux.HandleFunc(`GET /api/trip/get_all`, srv.GetUserTripHandler)
+	mux.HandleFunc(`GET /api/trip/get_all`, srv.GetUserListTripsHandler)
+	mux.HandleFunc(`GET /api/trip/{trip_id}`, srv.GetUserTripHandler)
 
 	mux.HandleFunc(`PUT /api/trip/{trip_id}/update_trip`, srv.UpdateUserTripHandler)
 
 	mux.HandleFunc(`PATCH /api/trip/{trip_id}/complete`, srv.CompleteUserTripHandler)
 
-	mux.HandleFunc(`DELETE /api/trip/{trip_id}/delete/`, srv.DeleteUserTripHandler)
+	mux.HandleFunc(`DELETE /api/trip/{trip_id}/delete`, srv.DeleteUserTripHandler)
 	//User
-	mux.HandleFunc(`POST /api/user/delete`, srv.DeleteUserHandler)
+	mux.HandleFunc(`DELETE /api/user/delete`, srv.DeleteUserHandler)
 }

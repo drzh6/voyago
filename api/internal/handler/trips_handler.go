@@ -26,8 +26,13 @@ func (srv Service) CreateTripHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inviteCode := generateInviteCode(srv.cfg.InviteCodeLength, srv.cfg.InviteCodeRunes)
-	sql := `INSERT INTO trips (id, name, description, owner_id, start_date, end_date, invite_code) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err = srv.pool.Exec(r.Context(), sql, uuid.New(), req.Name, req.Description, body.Id, req.StartDate, req.EndDate, inviteCode)
+	sql := `INSERT INTO trips (id, name, description, owner_id, start_date, end_date, invite_code, cover_image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	if req.CoverImageUrl == "" {
+		req.CoverImageUrl = "null"
+	}
+
+	_, err = srv.pool.Exec(r.Context(), sql, uuid.New(), req.Name, req.Description, body.Id, req.StartDate, req.EndDate, inviteCode, req.CoverImageUrl)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -40,26 +45,19 @@ func (srv Service) CreateTripHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("Trip " + req.Name + " created."))
 }
 
 func (srv Service) GetUserListTripsHandler(w http.ResponseWriter, r *http.Request) {
-	var req TripRequestBody
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	body, err := GetInfoFromCookie(r, srv.AccessTokenName, srv.cfg.JWTKey)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		log.Printf("\n Error in GetUserListTripsHandlerGetUserListTripsHandler in GetInfoFromCookie: %v ", err)
+		log.Printf("\n Error in GetUserListTripsHandler in GetInfoFromCookie: %v ", err)
 		return
 	}
 
 	sql := `SELECT id, name, start_date, end_date, status FROM trips WHERE owner_id = $1 AND status != $2`
-	rows, err := srv.pool.Query(r.Context(), sql, body.Id, "closed")
+	rows, err := srv.pool.Query(r.Context(), sql, body.Id, "completed")
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		log.Println("\n Error in GetUserListTripsHandlerGetUserListTripsHandler in Query: %v ", err)
@@ -76,6 +74,7 @@ func (srv Service) GetUserListTripsHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (srv Service) UpdateUserTripHandler(w http.ResponseWriter, r *http.Request) {
+	tripId := r.PathValue("trip_id")
 	var req TripRequestBody
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -110,7 +109,7 @@ func (srv Service) UpdateUserTripHandler(w http.ResponseWriter, r *http.Request)
 		req.IsPublic,
 		req.CoverImageUrl,
 		time.Now(),
-		req.Id,
+		tripId,
 		body.Id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -122,10 +121,10 @@ func (srv Service) UpdateUserTripHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (srv Service) GetUserTripHandler(w http.ResponseWriter, r *http.Request) {
-	tripId := r.URL.Query().Get("trip_id")
+	tripId := r.PathValue("trip_id")
 	if tripId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		log.Println("\n Error in GetUserTripHandler in URL.Query")
+		log.Println("\n Error in GetUserTripHandler in URL.Query tripId is empty")
 		return
 	}
 
@@ -138,10 +137,11 @@ func (srv Service) GetUserTripHandler(w http.ResponseWriter, r *http.Request) {
 
 	sql := `SELECT * FROM trips WHERE id = $1 and owner_id = $2`
 	var result TripRequestBody
-	err = srv.pool.QueryRow(r.Context(), sql, tripId, body.Id).Scan(result)
+	err = srv.pool.QueryRow(r.Context(), sql, tripId, body.Id).Scan(&result.Id, &result.Name, &result.Description, &result.OwnerId, &result.StartDate, &result.EndDate, &result.Status, &result.IsPublic, &result.InviteCode, &result.CoverImageUrl, &result.CreatedAt, &result.UpdatedAt)
 	if err != nil {
 		log.Printf("\n Error in GetUserTripHandler in QueryRow: %v ", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
 	}
 
 	jsonResult, err := json.Marshal(result)
@@ -154,7 +154,7 @@ func (srv Service) GetUserTripHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (srv Service) DeleteUserTripHandler(w http.ResponseWriter, r *http.Request) {
-	tripId := r.URL.Query().Get("trip_id")
+	tripId := r.PathValue("trip_id")
 	if tripId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		log.Println("\n Error in DeleteUserTripHandler in URL.Query")
@@ -180,7 +180,7 @@ func (srv Service) DeleteUserTripHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (srv Service) CompleteUserTripHandler(w http.ResponseWriter, r *http.Request) {
-	tripId := r.URL.Query().Get("trip_id")
+	tripId := r.PathValue("trip_id")
 	if tripId == "" {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		log.Println("\n Error in CompleteUserTripHandler in URL.Query")
