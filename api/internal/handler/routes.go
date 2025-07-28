@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"api/voyago/internal/chat"
 	"fmt"
 	"net/http"
 )
@@ -25,4 +26,9 @@ func RegisterRoutes(mux *http.ServeMux, srv *Service) {
 	mux.HandleFunc(`DELETE /api/trip/{trip_id}/delete`, srv.DeleteUserTripHandler)
 	//User
 	mux.HandleFunc(`DELETE /api/user/delete`, srv.DeleteUserHandler)
+
+	//WebSockets
+	hub := chat.NewHub()
+	go hub.Run()
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { chat.ServeWs(hub, w, r) })
 }
